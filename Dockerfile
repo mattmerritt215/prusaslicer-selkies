@@ -9,9 +9,9 @@ ARG DISTRIB_RELEASE=24.04
 ARG SELKIES_BRANCH=main
 
 # Selkies component stages
-FROM ghcr.io/selkies-project/selkies-gstreamer/gstreamer:${SELKIES_BRANCH}-ubuntu${DISTRIB_RELEASE} AS gstreamer
-FROM ghcr.io/selkies-project/selkies-gstreamer/py-build:${SELKIES_BRANCH}-ubuntu${DISTRIB_RELEASE} AS py-build
-FROM ghcr.io/selkies-project/selkies-gstreamer/gst-web:${SELKIES_BRANCH} AS gst-web
+FROM ghcr.io/selkies-project/selkies-gstreamer/gstreamer:main-ubuntu${DISTRIB_RELEASE} AS gstreamer
+FROM ghcr.io/selkies-project/selkies-gstreamer/py-build:main AS py-build
+FROM ghcr.io/selkies-project/selkies-gstreamer/gst-web:main AS gst-web
 
 # Main image
 FROM ubuntu:${DISTRIB_RELEASE}
