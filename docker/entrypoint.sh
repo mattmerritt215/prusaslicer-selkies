@@ -46,3 +46,18 @@ mkdir -p /config/prusaslicer
 export XDG_CONFIG_HOME=/config
 
 echo "INFO: Starting PrusaSlicer-Selkies (encoder=${SELKIES_ENCODER}, resolution=${DISPLAY_RESOLUTION})"
+
+sed -i "s|%(ENV_DISPLAY_RESOLUTION)s|${DISPLAY_RESOLUTION}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+sed -i "s|%(ENV_SELKIES_ENCODER)s|${SELKIES_ENCODER}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+sed -i "s|%(ENV_TURN_HOST)s|${TURN_HOST}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+sed -i "s|%(ENV_TURN_PORT)s|${TURN_PORT}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+sed -i "s|%(ENV_TURN_SECRET)s|${TURN_SECRET}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+sed -i "s|%(ENV_TURN_PROTOCOL)s|${TURN_PROTOCOL}|g" \
+    /etc/supervisor/conf.d/supervisord.conf
+
+exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
