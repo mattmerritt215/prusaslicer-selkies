@@ -1,0 +1,135 @@
+name: Build & Publish
+
+on:
+  push:
+    branches: [main]
+    tags:
+      # Trigger on version tags: v2.8.1, v2.9.0, etc.
+      - "v*"
+  # Allow manual trigger to rebuild with latest Selkies/base even if
+  # PrusaSlicer version hasn't changed (e.g. security patches in base image).
+  workflow_dispatch:
+    inputs:
+      prusa_version:
+        description: "PrusaSlicer version to build (e.g. 2.8.1)"
+        required: false
+        default: ""
+      push_latest:
+        description: "Also tag as :latest"
+        type: boolean
+        default: true
+
+env:
+  # Update these to your real usernames/repo names
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/prusaslicer-selkies
+  
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # needed to push to ghcr.io
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Determine PrusaSlicer version
+      # Priority: manual input > git tag > fallback to latest GitHub release
+      - name: Resolve PrusaSlicer version
+        id: prusa
+        run: |
+          if [[ -n "${{ github.event.inputs.prusa_version }}" ]]; then
+            VERSION="${{ github.event.inputs.prusa_version }}"
+            echo "Source: workflow_dispatch input"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # Strip leading 'v' from tag (v2.8.1 → 2.8.1)
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+            echo "Source: git tag"
+          else
+            # Auto-detect latest PrusaSlicer release from GitHub API
+            VERSION=$(curl -sf https://api.github.com/repos/prusa3d/PrusaSlicer/releases/latest \
+              | jq -r '.tag_name | ltrimstr("version_")')
+            echo "Source: GitHub API (latest release)"
+          fi
+          echo "Resolved PrusaSlicer version: ${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Docker metadata / tags
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+          tags: |
+            # Tag with the exact PrusaSlicer version (always)
+            type=raw,value=${{ steps.prusa.outputs.version }}
+            # Tag as latest when: pushing to main, or workflow_dispatch with push_latest=true
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event.inputs.push_latest == 'true' }}
+            # Tag with git sha for traceability
+            type=sha,prefix=sha-
+          labels: | 
+            org.opencontainers.image.title=PrusaSlicer (Selkies WebRTC)
+            org.opencontainers.image.description=Browser-accessible PrusaSlicer via Selkies-GStreamer WebRTC
+            prusaslicer.version=${{ steps.prusa.outputs.version }}
+
+      # QEMU + Buildx (multi-platform) 
+      # Note: PrusaSlicer only ships amd64 AppImages upstream,
+      # so we only build linux/amd64 for now.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Registry logins
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build & push
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PRUSA_VERSION=${{ steps.prusa.outputs.version }}
+            DISTRIB_RELEASE=24.04
+          # Cache layers in GitHub's cache for faster rebuilds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Weekly scheduled rebuild
+  # Rebuilds :latest on a schedule to pick up base image security patches
+  # even when no code changes have been pushed.
+  scheduled-rebuild:
+    runs-on: ubuntu-latest
+    # Only run the schedule job, not on every trigger
+    if: github.event_name == 'schedule'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger build via workflow_dispatch
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build.yml
+          inputs: '{"push_latest": "true"}'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+# Run weekly rebuild every Monday at 03:00 UTC
+# (separate from the main job so it only fires on schedule, not on push)
+# Add this to trigger scheduled rebuilds:
+# on:
+#   schedule:
+#     - cron: '0 3 * * 1'
