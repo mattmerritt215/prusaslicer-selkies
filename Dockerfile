@@ -47,8 +47,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     xcvt libopenh264-dev \
     # Intel VA-API hardware encoding support
     libva2 libva-drm2 intel-media-va-driver-non-free vainfo \
+    # Debian build essentials (needed for some Python packages)
+    build-essential linux-headers-generic \
     # Python for Selkies signaling server
-    python3 python3-pip \
+    python3 python3-pip python3-dev \
     # nginx — serves the HTML5 web UI and proxies WebSocket signaling
     nginx \
     # PrusaSlicer AppImage runtime deps
