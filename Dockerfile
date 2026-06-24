@@ -54,7 +54,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     # nginx — serves the HTML5 web UI and proxies WebSocket signaling
     nginx \
     # PrusaSlicer AppImage runtime deps
-    libgl1 libglu1-mesa libgtk-3-0 libdbus-glib-1-2 \
+    libgl1 libwebkit2gtk-4.1-0 libglu1-mesa libgtk-3-0 libdbus-glib-1-2 \
     libnotify4 libsecret-1-0 libfuse2 fuse \
  && rm -rf /var/lib/apt/lists/*
 
@@ -69,8 +69,7 @@ RUN pip3 install --break-system-packages /tmp/selkies_gstreamer-0.0.0.dev0-py3-n
 
 # Download and set up PrusaSlicer AppImage
 RUN set -eux; \
-    PRUSA_FILENAME="PrusaSlicer-${PRUSA_VERSION}+linux-x64-GTK3-202410281434.AppImage"; \
-    wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_${PRUSA_VERSION}/${PRUSA_FILENAME}" \
+    wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_${PRUSA_VERSION}/PrusaSlicer-${PRUSA_VERSION}+linux-x64-newer-distros-GTK3-202409181416.AppImage" \
          -O /opt/PrusaSlicer.AppImage; \
     chmod +x /opt/PrusaSlicer.AppImage; \
     # Extract the AppImage in place (avoids needing FUSE at runtime)
