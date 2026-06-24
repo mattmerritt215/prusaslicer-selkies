@@ -32,7 +32,7 @@ ENV TZ=America/New_York
 # Install system packages
 RUN apt-get update && apt-get install --no-install-recommends -y \
     # Utilities
-    bash curl wget ca-certificates gnupg tini supervisor \
+    bash curl wget ca-certificates gnupg tini supervisor locales \
     # Virtual X11 display
     xvfb x11-utils x11-xkb-utils x11-xserver-utils xserver-xorg-core \
     libx11-xcb1 libxcb-dri3-0 libxkbcommon0 libxdamage1 libxfixes3 \
@@ -57,6 +57,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     # PrusaSlicer AppImage runtime deps
     libgl1 libwebkit2gtk-4.1-0 libglu1-mesa libgtk-3-0 libdbus-glib-1-2 \
     libnotify4 libsecret-1-0 libfuse2 fuse \
+ && locale-gen en_US.UTF-8 \
+ && dpkg-reconfigure --frontend=noninteractive locales \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy Selkies components

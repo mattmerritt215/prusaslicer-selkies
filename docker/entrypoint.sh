@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
 # Defaults
 # SELKIES_ENCODER:
 #   vah264enc  → Intel/AMD VA-API H.264 (hardware)
@@ -40,6 +44,7 @@ if [[ "$SELKIES_ENCODER" == "vah264enc" ]]; then
         echo "INFO: VA-API available — using hardware encoder (${SELKIES_ENCODER})."
     fi
 fi
+
 
 # Persistent config dirs
 mkdir -p /config/prusaslicer
