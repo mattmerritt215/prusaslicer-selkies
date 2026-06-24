@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential linux-headers-generic \
     # Python for Selkies signaling server
     python3 python3-pip python3-dev \
+    python3-gi python3-gi-cairo gir1.2-glib-2.0 gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 \
     # nginx — serves the HTML5 web UI and proxies WebSocket signaling
     nginx \
     # PrusaSlicer AppImage runtime deps
@@ -75,10 +76,8 @@ RUN set -eux; \
     # Extract the AppImage in place (avoids needing FUSE at runtime)
     cd /opt && /opt/PrusaSlicer.AppImage --appimage-extract; \
     mv /opt/squashfs-root /opt/PrusaSlicer; \
-    # Symlink the extracted AppRun as a plain binary for easier execution
-    ln -s /opt/PrusaSlicer/AppRun /usr/local/bin/prusaslicer; \
-    # Clean up the original AppImage
-    rm /opt/PrusaSlicer.AppImage
+    rm /opt/PrusaSlicer.AppImage; \
+    ln -s /opt/PrusaSlicer/AppRun /usr/local/bin/prusa-slicer
 
 # Config files
 COPY docker/nginx.conf /etc/nginx/nginx.conf
