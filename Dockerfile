@@ -61,8 +61,8 @@ COPY --from=gstreamer /opt/gstreamer /opt/gstreamer
 COPY --from=gst-web   /opt/gst-web   /opt/gst-web
 
 # Install Selkies Python signaling server wheel
-COPY --from=py-build /opt/pypi/*.whl /tmp/
-RUN pip3 install --break-system-packages /tmp/*.whl && rm /tmp/*.whl
+COPY --from=py-build /opt/pypi/dist/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl /tmp/selkies_gstreamer.whl
+RUN pip3 install --break-system-packages /tmp/selkies_gstreamer.whl && rm /tmp/selkies_gstreamer.whl
 
 # Download and set up PrusaSlicer AppImage
 RUN set -eux; \
