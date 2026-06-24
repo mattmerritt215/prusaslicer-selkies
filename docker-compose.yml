@@ -1,0 +1,29 @@
+services:
+  prusaslicer:
+    #image: ghcr.io/mattmerritt215/prusaslicer-selkies:latest
+    build:
+      context: .
+      args:
+        PRUSA_VERSION: "2.8.1"
+    container_name: prusaslicer
+    restart: unless-stopped
+    shm_size: "1gb"
+    environment:
+      - TZ=America/New_York
+      - SELKIES_ENCODER=vah264enc
+      - DISPLAY_RESOLUTION=1920x1080x24
+      - TURN_HOST=fagmob.lol
+      - TURN_PORT=3478
+      - TURN_SECRET=${TURN_SECRET}
+      - TURN_PROTOCOL=udp
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    volumes:
+      - prusaslicer-config:/config
+    ports:
+      - 127.0.0.1:8080:8080
+
+volumes:
+  prusaslicer-config:
+    name: prusaslicer-config
+    driver: local
