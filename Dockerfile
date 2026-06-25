@@ -1,96 +1,151 @@
-# PrusaSlicer over WebRTC using Selkies-GStreamer
+# syntax=docker/dockerfile:1
+#
+# PrusaSlicer via Selkies-GStreamer WebRTC
+# Browser-accessible PrusaSlicer with low-latency WebRTC streaming.
+# Supports Intel VA-API hardware acceleration (software fallback included).
 #
 # Build args:
 #   DISTRIB_RELEASE   Ubuntu version (default: 24.04)
 #   PRUSA_VERSION     PrusaSlicer release tag (default: 2.8.1)
-#   SELKIES_BRANCH    Selkies build branch (default: main)
 
 ARG DISTRIB_RELEASE=24.04
-ARG SELKIES_BRANCH=main
 
-# Selkies component stages
+####################################################
+# Selkies component stages                         #
+####################################################
 FROM ghcr.io/selkies-project/selkies-gstreamer/gstreamer:main-ubuntu${DISTRIB_RELEASE} AS gstreamer
 FROM ghcr.io/selkies-project/selkies-gstreamer/py-build:main AS py-build
 FROM ghcr.io/selkies-project/selkies-gstreamer/gst-web:main AS gst-web
 
-# Main image
+####################################################
+# Main image                                       #
+####################################################
 FROM ubuntu:${DISTRIB_RELEASE}
 
 ARG DISTRIB_RELEASE
 ARG PRUSA_VERSION=2.8.1
 
-# Labels for metadata
 LABEL org.opencontainers.image.title="PrusaSlicer (Selkies WebRTC)"
 LABEL org.opencontainers.image.description="Browser-accessible PrusaSlicer via Selkies-GStreamer WebRTC. No local install required."
 LABEL org.opencontainers.image.source="https://github.com/mattmerritt215/prusaslicer-selkies"
-LABEL org.opencontainers.image.licenses="GPL-3.0"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL prusaslicer.version="${PRUSA_VERSION}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=America/New_York
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
 
-# Install system packages
+####################################################
+# System packages                                  #
+####################################################
 RUN apt-get update && apt-get install --no-install-recommends -y \
     # Utilities
-    bash curl wget ca-certificates gnupg tini supervisor locales \
+    bash curl wget ca-certificates gnupg tini supervisor \
+    # Locales (fixes PrusaSlicer "Switching language failed" dialog)
+    locales \
     # Virtual X11 display
     xvfb x11-utils x11-xkb-utils x11-xserver-utils xserver-xorg-core \
     libx11-xcb1 libxcb-dri3-0 libxkbcommon0 libxdamage1 libxfixes3 \
     libxv1 libxtst6 libxext6 libxrandr2 \
     # Wayland / DRI (needed even in Xvfb mode for VA-API path)
     wayland-protocols libwayland-dev libwayland-egl1 \
-    # Lightweight window manager — just enough to host PrusaSlicer
+    # Lightweight window manager
     openbox dbus-x11 at-spi2-core \
+    # Clipboard support for Selkies
+    xsel xclip \
     # Audio streaming (Selkies sends Opus to browser)
     pulseaudio \
     # Selkies Ubuntu 22.04+ extra deps
     xcvt libopenh264-dev \
     # Intel VA-API hardware encoding support
-    libva2 libva-drm2 intel-media-va-driver-non-free vainfo \
-    # Debian build essentials (needed for some Python packages)
-    build-essential linux-headers-generic \
-    # Python for Selkies signaling server
-    python3 python3-pip python3-dev \
-    python3-gi python3-gi-cairo gir1.2-glib-2.0 gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 \
-    # nginx — serves the HTML5 web UI and proxies WebSocket signaling
-    nginx \
+    libva2 libva-drm2 \
+    # Python for Selkies signaling server + GStreamer bindings
+    python3 python3-pip python3-dev build-essential \
+    python3-gi python3-gi-cairo \
+    gir1.2-glib-2.0 \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
+    gir1.2-gst-plugins-bad-1.0 \
+    # Kernel headers (needed to build evdev Python dep)
+    linux-headers-generic \
     # PrusaSlicer AppImage runtime deps
-    libgl1 libwebkit2gtk-4.1-0 libglu1-mesa libgtk-3-0 libdbus-glib-1-2 \
+    libgl1 libglu1-mesa libgtk-3-0 libdbus-glib-1-2 \
     libnotify4 libsecret-1-0 libfuse2 fuse \
+    # WebKit required by PrusaSlicer 2.8.1 newer-distros AppImage
+    libwebkit2gtk-4.1-0 \
  && locale-gen en_US.UTF-8 \
  && dpkg-reconfigure --frontend=noninteractive locales \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy Selkies components
-COPY --from=gstreamer /opt/gstreamer /opt/gstreamer
-COPY --from=gst-web   /opt/gst-web   /opt/gst-web
+####################################################
+# Intel VA-API driver (requires non-free repo)     #
+####################################################
+RUN apt-get update \
+ && apt-get install --no-install-recommends -y software-properties-common \
+ && add-apt-repository non-free \
+ && apt-get update \
+ && apt-get install --no-install-recommends -y intel-media-va-driver-non-free vainfo \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install Selkies Python signaling server wheel
+####################################################
+# Selkies GStreamer components                     #
+####################################################
+COPY --from=gstreamer /opt/gstreamer /opt/gstreamer
+COPY --from=gst-web   /usr/share/nginx/html /opt/gst-web
+
+####################################################
+# Selkies Python wheel                             #
+####################################################
 COPY --from=py-build /opt/pypi/dist/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl /tmp/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl
-RUN pip3 install --break-system-packages /tmp/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl \
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    linux-headers-generic python3-dev build-essential \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip3 install --break-system-packages /tmp/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl \
  && rm /tmp/selkies_gstreamer-0.0.0.dev0-py3-none-any.whl
 
-# Download and set up PrusaSlicer AppImage
+####################################################
+# Patch gst-web appName                            #
+####################################################  
+RUN python3 -c "
+import re
+with open('/opt/gst-web/src/app.js', 'r') as f:
+    content = f.read()
+content = re.sub(
+    r'window\.location\.pathname\.endsWith.*?\"webrtc\"',
+    '\"selkies\"',
+    content,
+    flags=re.DOTALL
+)
+with open('/opt/gst-web/src/app.js', 'w') as f:
+    f.write(content)
+print('Patched appName -> selkies')
+"
+
+####################################################
+# PrusaSlicer                                      #
+####################################################
 RUN set -eux; \
     wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_${PRUSA_VERSION}/PrusaSlicer-${PRUSA_VERSION}+linux-x64-newer-distros-GTK3-202409181416.AppImage" \
          -O /opt/PrusaSlicer.AppImage; \
     chmod +x /opt/PrusaSlicer.AppImage; \
-    # Extract the AppImage in place (avoids needing FUSE at runtime)
     cd /opt && /opt/PrusaSlicer.AppImage --appimage-extract; \
     mv /opt/squashfs-root /opt/PrusaSlicer; \
     rm /opt/PrusaSlicer.AppImage; \
     ln -s /opt/PrusaSlicer/AppRun /usr/local/bin/prusa-slicer
 
-# Config files
-COPY docker/nginx.conf /etc/nginx/nginx.conf
+####################################################
+# Config files                                     #
+#################################################### 
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint.sh    /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Persistent volume for PrusaSlicer profiles + Selkies state
+# Persistent volume for PrusaSlicer profiles + config
 VOLUME ["/config"]
 
-# Expose NGINX port
+# Selkies serves everything directly on 8080
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]

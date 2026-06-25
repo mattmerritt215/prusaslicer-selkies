@@ -1,6 +1,5 @@
 services:
   prusaslicer:
-    #image: ghcr.io/mattmerritt215/prusaslicer-selkies:latest
     build:
       context: .
       args:
