@@ -106,7 +106,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 ####################################################
 # Patch gst-web appName                            #
 ####################################################  
-RUN python3 -c "RUN python3 -c "import re; f=open('/opt/gst-web/src/app.js','r+'); c=f.read(); c=re.sub(r'window\.location\.pathname\.endsWith.*?\"webrtc\"','\"selkies\"',c,flags=re.DOTALL); f.seek(0); f.write(c); f.truncate(); f.close(); print('Patched appName -> selkies')"
+COPY docker/patch-appname.py /tmp/patch-appname.py
+RUN python3 /tmp/patch-appname.py && rm /tmp/patch-appname.py
 
 ####################################################
 # PrusaSlicer                                      #
