@@ -82,9 +82,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 ####################################################
 # Intel VA-API driver (requires non-free repo)     #
 ####################################################
-RUN apt-get update \
- && apt-get install --no-install-recommends -y software-properties-common \
- && add-apt-repository non-free \
+RUN sed -i 's/^Types: deb$/Types: deb\nComponents: main restricted universe multiverse/' /etc/apt/sources.list.d/ubuntu.sources \
  && apt-get update \
  && apt-get install --no-install-recommends -y intel-media-va-driver-non-free vainfo \
  && rm -rf /var/lib/apt/lists/*
